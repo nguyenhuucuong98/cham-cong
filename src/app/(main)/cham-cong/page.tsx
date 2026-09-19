@@ -18,7 +18,7 @@ import {
   ChevronRight,
   UserCheck
 } from 'lucide-react';
-
+import Image from 'next/image';
 // Mock data nhân viên chấm công
 interface AttendanceRecord {
   id: string;
@@ -316,7 +316,7 @@ export default function AttendancePage() {
                   {/* Nhân viên */}
                   <td className="py-3.5 px-5">
                     <div className="flex items-center gap-3">
-                      <img
+                      <Image
                         src={rec.avatar}
                         alt={rec.name}
                         className="w-9 h-9 rounded-full object-cover ring-2 ring-gray-100"

@@ -22,7 +22,7 @@ import {
     RefreshCw,
     Sparkles
   } from 'lucide-react';
-
+  import Image from 'next/image';
 // Kiểu dữ liệu nhân viên trong báo cáo
 interface ReportRow {
   id: string;
@@ -348,7 +348,7 @@ export default function AttendanceReportPage() {
                   {/* Cột Nhân Viên */}
                   <td className="py-3.5 px-5">
                     <div className="flex items-center gap-3">
-                      <img
+                      <Image
                         src={row.avatar}
                         alt={row.name}
                         className="w-9 h-9 rounded-full object-cover border border-gray-200"
@@ -431,7 +431,7 @@ export default function AttendanceReportPage() {
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-5">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-3">
-                <img
+                <Image
                   src={selectedEmployee.avatar}
                   alt={selectedEmployee.name}
                   className="w-10 h-10 rounded-full object-cover border"

@@ -25,7 +25,7 @@ import {
   Zap,
   ArrowLeft
 } from 'lucide-react';
-
+import Link from 'next/link'
 export default function App() {
   // Form State
   const [formData, setFormData] = useState({
@@ -159,28 +159,25 @@ export default function App() {
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md fixed top-0 w-full z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <a href="#" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform">
-              <Clock className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
-              WorkSync
-              <span className="text-[10px] uppercase font-bold tracking-widest bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/30">
-                Enterprise
+            <span className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+                <img src="./images/logo.png" width="42" atl={process.env.NEXT_PUBLIC_IMG_ATL} className="rounded-lg"/>
+                <span className="text-[10px] uppercase font-extrabold tracking-widest bg-[#1151c5]/20 text-blue-400 px-2 py-0.5 rounded-md border border-[#1151c5]/30">
+                {process.env.NEXT_PUBLIC_IMG_ATL}
+                </span>
               </span>
-            </span>
           </a>
 
           <div className="flex items-center gap-4">
             <span className="hidden sm:inline text-xs font-medium text-slate-400">
               Đã có tài khoản doanh nghiệp?
             </span>
-            <button
-              onClick={() => alert('Demo: Chuyển sang trang Đăng nhập WorkSync')}
+            <Link
+              href="./dang-nhap"
               className="text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl border border-slate-700 transition-all hover:border-blue-500/50 flex items-center gap-1.5"
             >
               <span>Đăng nhập</span>
               <ChevronRight className="w-3.5 h-3.5 text-blue-400" />
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -312,9 +309,9 @@ export default function App() {
             
             {/* Header Form Titles */}
             <div>
-              <div className="inline-flex items-center gap-2 text-xs font-bold text-blue-400 uppercase tracking-wider bg-blue-500/10 px-3 py-1 rounded-md border border-blue-500/20 mb-3">
+              {/* <div className="inline-flex items-center gap-2 text-xs font-bold text-blue-400 uppercase tracking-wider bg-blue-500/10 px-3 py-1 rounded-md border border-blue-500/20 mb-3">
                 <Check className="w-3.5 h-3.5" /> Trải nghiệm miễn phí 14 ngày - Không cần thẻ tín dụng
-              </div>
+              </div> */}
               <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 Đăng ký tài khoản Doanh nghiệp
               </h2>

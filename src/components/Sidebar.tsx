@@ -28,7 +28,7 @@ interface SidebarProps {
 
 // Danh sách các Menu Item khớp hoàn toàn với thiết kế WorkSync
 const navigationItems = [
-  { name: 'Tổng quan', href: '/', icon: LayoutDashboard },
+  { name: 'Tổng quan', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Chấm công', href: '/cham-cong', icon: Clock },
   { name: 'Nhân viên', href: '/nhan-vien', icon: Users },
   { name: 'Nghỉ phép', href: '/nghi-phep', icon: CalendarDays },

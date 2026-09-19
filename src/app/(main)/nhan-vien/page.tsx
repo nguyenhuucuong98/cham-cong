@@ -1,33 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
   Users,
   UserPlus,
   Search,
-  Filter,
   Download,
-  MoreVertical,
   Mail,
   Phone,
-  Building2,
-  Calendar,
   Eye,
   Edit,
-  Trash2,
-  CheckCircle2,
   Clock,
   XCircle,
   Briefcase,
   X,
-  UserCheck,
-  ChevronLeft,
-  ChevronRight,
-  ShieldCheck,
-  MapPin
+  UserCheck
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
-// Kiểu dữ liệu Nhân viên
 interface Employee {
   id: string;
   code: string;
@@ -47,12 +37,12 @@ const initialEmployees: Employee[] = [
   {
     id: '1',
     code: 'NV-0102',
-    name: 'Nguyễn Văn A',
+    name: 'Nguyễn Văn A Nguyễn Văn A Long Name Test',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-    email: 'nguyenvana@company.com',
+    email: 'nguyenvana_rat_dai_va_chua_cat@company.com',
     phone: '0981 234 567',
     department: 'Kinh doanh',
-    role: 'Trưởng phòng Kinh doanh',
+    role: 'Trưởng phòng Kinh doanh Xuất nhập khẩu',
     shift: 'Hành chính (08:00 - 17:30)',
     joinDate: '15/03/2023',
     status: 'active',
@@ -85,34 +75,6 @@ const initialEmployees: Employee[] = [
     joinDate: '10/11/2022',
     status: 'leave',
     type: 'Full-time'
-  },
-  {
-    id: '4',
-    code: 'NV-0118',
-    name: 'Phạm Minh D',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80',
-    email: 'phamminhd@company.com',
-    phone: '0934 567 890',
-    department: 'Kỹ thuật',
-    role: 'Thực tập sinh Backend',
-    shift: 'Ca sáng (08:00 - 12:00)',
-    joinDate: '01/06/2026',
-    status: 'active',
-    type: 'Thực tập'
-  },
-  {
-    id: '5',
-    code: 'NV-0125',
-    name: 'Hoàng Kim E',
-    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&auto=format&fit=crop&q=80',
-    email: 'hoangkime@company.com',
-    phone: '0905 112 233',
-    department: 'Nhân sự',
-    role: 'Chuyên viên Tuyển dụng',
-    shift: 'Hành chính (08:00 - 17:30)',
-    joinDate: '20/01/2025',
-    status: 'suspended',
-    type: 'Full-time'
   }
 ];
 
@@ -123,11 +85,55 @@ export default function EmployeesPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
 
-  // State điều khiển Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
-  // Form Thêm nhân viên
+  // State lưu độ rộng từng cột (px)
+  const [columnWidths, setColumnWidths] = useState({
+    name: 220,
+    contact: 220,
+    role: 200,
+    shift: 180,
+    type: 110,
+    status: 140,
+    actions: 100
+  });
+
+  // Xử lý kéo thả thay đổi kích thước cột
+  const resizingColumn = useRef<keyof typeof columnWidths | null>(null);
+  const startX = useRef<number>(0);
+  const startWidth = useRef<number>(0);
+
+  const handleMouseDown = (
+    e: React.MouseEvent,
+    columnKey: keyof typeof columnWidths
+  ) => {
+    e.preventDefault();
+    resizingColumn.current = columnKey;
+    startX.current = e.clientX;
+    startWidth.current = columnWidths[columnKey];
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!resizingColumn.current) return;
+    const deltaX = e.clientX - startX.current;
+    const newWidth = Math.max(80, startWidth.current + deltaX); // Giới hạn tối thiểu 80px
+
+    setColumnWidths((prev) => ({
+      ...prev,
+      [resizingColumn.current as keyof typeof columnWidths]: newWidth
+    }));
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    resizingColumn.current = null;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  }, [handleMouseMove]);
+
   const [newEmp, setNewEmp] = useState({
     name: '',
     email: '',
@@ -137,7 +143,6 @@ export default function EmployeesPage() {
     type: 'Full-time'
   });
 
-  // Xử lý thêm nhân viên mới (Demo)
   const handleAddEmployee = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmp.name || !newEmp.email) return;
@@ -162,7 +167,48 @@ export default function EmployeesPage() {
     setNewEmp({ name: '', email: '', phone: '', department: 'Kinh doanh', role: '', type: 'Full-time' });
   };
 
-  // Filter dữ liệu
+  const handleExportExcel = () => {
+    // 1. Chuẩn hóa dữ liệu theo định dạng cột mong muốn trong Excel
+    const dataToExport = filteredEmployees.map((emp) => ({
+      'Mã NV': emp.code,
+      'Họ và Tên': emp.name,
+      'Email': emp.email,
+      'Số Điện Thoại': emp.phone,
+      'Phòng Ban': emp.department,
+      'Chức Danh': emp.role,
+      'Ca Làm Việc': emp.shift,
+      'Loại Hợp Đồng': emp.type,
+      'Ngày Vào Làm': emp.joinDate,
+      'Trạng Thái':
+        emp.status === 'active'
+          ? 'Đang làm việc'
+          : emp.status === 'leave'
+          ? 'Nghỉ phép'
+          : 'Tạm ngưng'
+    }));
+  
+    // 2. Tạo worksheet từ dữ liệu JSON
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+  
+    // 3. Tự động chỉnh độ rộng cột Excel dựa trên độ dài nội dung
+    const columnWidths = Object.keys(dataToExport[0] || {}).map((key) => {
+      const maxLen = Math.max(
+        key.length,
+        ...dataToExport.map((row) => String(row[key as keyof typeof row] || '').length)
+      );
+      return { wch: maxLen + 4 }; // Thêm margin padding
+    });
+    worksheet['!cols'] = columnWidths;
+  
+    // 4. Tạo workbook và ghi file
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách nhân viên');
+  
+    // 5. Xuất file với tên chứa ngày hiện tại
+    const fileName = `Danh_Sach_Nhan_Vien_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
   const filteredEmployees = employees.filter((emp) => {
     const matchSearch =
       emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -174,7 +220,7 @@ export default function EmployeesPage() {
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6">
+    <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6 select-none">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -185,13 +231,13 @@ export default function EmployeesPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => alert('Đã xuất hồ sơ nhân sự thành công!')}
-            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-colors"
-          >
-            <Download className="w-4 h-4 text-gray-500" />
-            <span>Xuất dữ liệu</span>
-          </button>
+        <button
+          onClick={handleExportExcel}
+          className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-colors"
+        >
+          <Download className="w-4 h-4 text-gray-500" />
+          <span>Xuất dữ liệu</span>
+        </button>
 
           <button
             onClick={() => setIsAddModalOpen(true)}
@@ -255,7 +301,6 @@ export default function EmployeesPage() {
       {/* Bộ lọc & Tìm kiếm */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {/* Input Tìm kiếm */}
           <div className="relative flex-1 md:w-72">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -267,7 +312,6 @@ export default function EmployeesPage() {
             />
           </div>
 
-          {/* Lọc phòng ban */}
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
@@ -280,7 +324,6 @@ export default function EmployeesPage() {
             <option value="Nhân sự">Nhân sự</option>
           </select>
 
-          {/* Lọc trạng thái */}
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
@@ -293,7 +336,6 @@ export default function EmployeesPage() {
           </select>
         </div>
 
-        {/* Nút chuyển chế độ xem Table / Grid */}
         <div className="flex items-center bg-gray-100 p-1 rounded-xl text-xs font-bold text-gray-600">
           <button
             onClick={() => setViewMode('table')}
@@ -314,92 +356,160 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      {/* Hiển thị danh sách Nhân viên */}
+      {/* Hiển thị danh sách Bảng với tính năng Resizable & Truncate */}
       {viewMode === 'table' ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse table-fixed">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-gray-100 text-[11px] uppercase tracking-wider text-gray-400 font-bold">
-                  <th className="py-3.5 px-5">Nhân viên</th>
-                  <th className="py-3.5 px-5">Liên hệ</th>
-                  <th className="py-3.5 px-5">Phòng ban & Chức danh</th>
-                  <th className="py-3.5 px-5">Ca làm việc</th>
-                  <th className="py-3.5 px-5">Loại HĐ</th>
-                  <th className="py-3.5 px-5">Trạng thái</th>
-                  <th className="py-3.5 px-5 text-right">Thao tác</th>
+                  {/* Cột Nhân viên */}
+                  <th style={{ width: columnWidths.name }} className="py-3.5 px-4 relative group">
+                    <span>Nhân viên</span>
+                    <div
+                      onMouseDown={(e) => handleMouseDown(e, 'name')}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize group-hover:bg-blue-400 active:bg-blue-600 transition-colors"
+                    />
+                  </th>
+
+                  {/* Cột Liên hệ */}
+                  <th style={{ width: columnWidths.contact }} className="py-3.5 px-4 relative group">
+                    <span>Liên hệ</span>
+                    <div
+                      onMouseDown={(e) => handleMouseDown(e, 'contact')}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize group-hover:bg-blue-400 active:bg-blue-600 transition-colors"
+                    />
+                  </th>
+
+                  {/* Cột Phòng ban & Chức danh */}
+                  <th style={{ width: columnWidths.role }} className="py-3.5 px-4 relative group">
+                    <span>Phòng ban & Chức danh</span>
+                    <div
+                      onMouseDown={(e) => handleMouseDown(e, 'role')}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize group-hover:bg-blue-400 active:bg-blue-600 transition-colors"
+                    />
+                  </th>
+
+                  {/* Cột Ca làm việc */}
+                  <th style={{ width: columnWidths.shift }} className="py-3.5 px-4 relative group">
+                    <span>Ca làm việc</span>
+                    <div
+                      onMouseDown={(e) => handleMouseDown(e, 'shift')}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize group-hover:bg-blue-400 active:bg-blue-600 transition-colors"
+                    />
+                  </th>
+
+                  {/* Cột Loại HĐ */}
+                  <th style={{ width: columnWidths.type }} className="py-3.5 px-4 relative group">
+                    <span>Loại HĐ</span>
+                    <div
+                      onMouseDown={(e) => handleMouseDown(e, 'type')}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize group-hover:bg-blue-400 active:bg-blue-600 transition-colors"
+                    />
+                  </th>
+
+                  {/* Cột Trạng thái */}
+                  <th style={{ width: columnWidths.status }} className="py-3.5 px-4 relative group">
+                    <span>Trạng thái</span>
+                    <div
+                      onMouseDown={(e) => handleMouseDown(e, 'status')}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize group-hover:bg-blue-400 active:bg-blue-600 transition-colors"
+                    />
+                  </th>
+
+                  {/* Cột Thao tác */}
+                  <th style={{ width: columnWidths.actions }} className="py-3.5 px-4 text-right">
+                    <span>Thao tác</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-xs font-medium text-gray-700">
                 {filteredEmployees.map((emp) => (
                   <tr key={emp.id} className="hover:bg-slate-50/60 transition-colors">
-                    {/* Nhân viên */}
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-center gap-3">
+                    {/* Tên nhân viên */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-3 min-w-0">
                         <img
                           src={emp.avatar}
                           alt={emp.name}
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-gray-100 shrink-0"
+                          className="w-9 h-9 rounded-full object-cover ring-2 ring-gray-100 shrink-0"
                         />
-                        <div>
-                          <p className="font-bold text-gray-900">{emp.name}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-gray-900 truncate" title={emp.name}>
+                            {emp.name}
+                          </p>
                           <p className="text-[10px] text-gray-400 font-semibold">{emp.code}</p>
                         </div>
                       </div>
                     </td>
 
-                    {/* Liên hệ */}
-                    <td className="py-3.5 px-5 space-y-0.5">
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                        <span className="truncate max-w-[140px]">{emp.email}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-gray-500 text-[11px]">
-                        <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                        <span>{emp.phone}</span>
+                    {/* Email & SĐT */}
+                    <td className="py-3.5 px-4">
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-1.5 text-gray-600 min-w-0">
+                          <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          <span className="truncate" title={emp.email}>
+                            {emp.email}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-gray-500 text-[11px] min-w-0">
+                          <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          <span className="truncate">{emp.phone}</span>
+                        </div>
                       </div>
                     </td>
 
                     {/* Phòng ban & Chức danh */}
-                    <td className="py-3.5 px-5">
-                      <p className="font-bold text-gray-800">{emp.department}</p>
-                      <p className="text-[11px] text-gray-400">{emp.role}</p>
+                    <td className="py-3.5 px-4">
+                      <div className="min-w-0">
+                        <p className="font-bold text-gray-800 truncate" title={emp.department}>
+                          {emp.department}
+                        </p>
+                        <p className="text-[11px] text-gray-400 truncate" title={emp.role}>
+                          {emp.role}
+                        </p>
+                      </div>
                     </td>
 
                     {/* Ca làm việc */}
-                    <td className="py-3.5 px-5 text-gray-600 font-semibold">
-                      {emp.shift}
+                    <td className="py-3.5 px-4">
+                      <p className="text-gray-600 font-semibold truncate" title={emp.shift}>
+                        {emp.shift}
+                      </p>
                     </td>
 
                     {/* Loại hợp đồng */}
-                    <td className="py-3.5 px-5">
-                      <span className="inline-block bg-gray-100 text-gray-700 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                    <td className="py-3.5 px-4">
+                      <span className="inline-block bg-gray-100 text-gray-700 text-[10px] font-bold px-2 py-0.5 rounded-md truncate max-w-full">
                         {emp.type}
                       </span>
                     </td>
 
                     {/* Trạng thái */}
-                    <td className="py-3.5 px-5">
+                    <td className="py-3.5 px-4">
                       {emp.status === 'active' && (
-                        <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-full border border-emerald-100">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Đang làm việc
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-full border border-emerald-100 truncate max-w-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                          <span className="truncate">Đang làm việc</span>
                         </span>
                       )}
                       {emp.status === 'leave' && (
-                        <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 text-[11px] font-bold px-2.5 py-1 rounded-full border border-amber-100">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Nghỉ phép
+                        <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 text-[11px] font-bold px-2.5 py-1 rounded-full border border-amber-100 truncate max-w-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                          <span className="truncate">Nghỉ phép</span>
                         </span>
                       )}
                       {emp.status === 'suspended' && (
-                        <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-[11px] font-bold px-2.5 py-1 rounded-full border border-rose-100">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Tạm ngưng
+                        <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-[11px] font-bold px-2.5 py-1 rounded-full border border-rose-100 truncate max-w-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                          <span className="truncate">Tạm ngưng</span>
                         </span>
                       )}
                     </td>
 
                     {/* Thao tác */}
-                    <td className="py-3.5 px-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => setSelectedEmployee(emp)}
                           className="p-1.5 hover:bg-gray-100 text-gray-500 hover:text-blue-600 rounded-lg transition-colors"
@@ -431,41 +541,45 @@ export default function EmployeesPage() {
               className="bg-white rounded-2xl border border-gray-100 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4"
             >
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <img
                     src={emp.avatar}
                     alt={emp.name}
-                    className="w-12 h-12 rounded-full object-cover ring-2 ring-gray-100"
+                    className="w-12 h-12 rounded-full object-cover ring-2 ring-gray-100 shrink-0"
                   />
-                  <div>
-                    <h3 className="font-extrabold text-gray-900 text-sm">{emp.name}</h3>
-                    <p className="text-[11px] text-gray-400 font-semibold">{emp.code} • {emp.department}</p>
+                  <div className="min-w-0">
+                    <h3 className="font-extrabold text-gray-900 text-sm truncate" title={emp.name}>
+                      {emp.name}
+                    </h3>
+                    <p className="text-[11px] text-gray-400 font-semibold truncate">
+                      {emp.code} • {emp.department}
+                    </p>
                   </div>
                 </div>
 
                 {emp.status === 'active' && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50"></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50 shrink-0"></span>
                 )}
                 {emp.status === 'leave' && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-4 ring-amber-50"></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-4 ring-amber-50 shrink-0"></span>
                 )}
                 {emp.status === 'suspended' && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 ring-4 ring-rose-50"></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 ring-4 ring-rose-50 shrink-0"></span>
                 )}
               </div>
 
               <div className="space-y-2 text-xs text-gray-600 bg-gray-50/60 p-3 rounded-xl border border-gray-100">
-                <div className="flex items-center gap-2">
-                  <Briefcase className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="font-semibold text-gray-800">{emp.role}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Briefcase className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <span className="font-semibold text-gray-800 truncate">{emp.role}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="w-3.5 h-3.5 text-gray-400" />
+                <div className="flex items-center gap-2 min-w-0">
+                  <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                   <span className="truncate">{emp.email}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="w-3.5 h-3.5 text-gray-400" />
-                  <span>{emp.phone}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <span className="truncate">{emp.phone}</span>
                 </div>
               </div>
 
@@ -486,7 +600,7 @@ export default function EmployeesPage() {
       {/* Modal Thêm Nhân Viên Mới */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-5 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-5">
             <div className="flex justify-between items-center border-b border-gray-100 pb-3">
               <h3 className="text-base font-bold text-gray-900">Thêm hồ sơ nhân viên mới</h3>
               <button
@@ -593,10 +707,10 @@ export default function EmployeesPage() {
         </div>
       )}
 
-      {/* Modal Xem chi tiết Nhân viên */}
+      {/* Modal Xem chi tiết */}
       {selectedEmployee && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-6 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-6">
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-4">
                 <img
